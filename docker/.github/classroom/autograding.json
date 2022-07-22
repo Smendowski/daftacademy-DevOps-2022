@@ -1,0 +1,94 @@
+{
+  "tests": [
+    {
+      "name": "zad1.1 Build image with nginx tag from ARG",
+      "setup": "docker build -t zad1.1 zad1 --build-arg NGINX_VERSION=1.21.3 && docker run -d -p 8003:8000 zad1.1",
+      "run": "sleep 5 && curl -sI 0.0.0.0:8003 | grep Server:",
+      "input": "",
+      "output": "Server: nginx/1.21.3",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad1.2 Return index.html on port 8000",
+      "setup": "docker build -t zad1.2 zad1 && docker run -d -p 8000:8000 zad1.2",
+      "run": "sleep 5 && curl localhost:8000",
+      "input": "",
+      "output": "<h1>Hello, World!</h1>",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad1.3 Return string in base64 on port 8001",
+      "setup": "docker build -t zad1.3 zad1 && docker run -d -p 8001:8001 zad1.3",
+      "run": "sleep 7 && curl localhost:8001",
+      "input": "",
+      "output": "RGV2T3BzIDQgQmVnaW5uZXJzIDIwMjI=",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad1.4 Install htop",
+      "setup": "docker build -t zad1.4 zad1",
+      "run": "docker run --entrypoint \"\" zad1.4 htop --version",
+      "input": "",
+      "output": "^htop\\D[0-9]+.[0-9]+.[0-9]+$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad2.1 Override ENV HOME variable",
+      "setup": "docker build -t zad2.1 zad2 --build-arg PROJECT_DIR=/home/my_superapp --build-arg USER_ID=1003",
+      "run": "docker run --entrypoint \"\" zad2.1 printenv | grep HOME",
+      "input": "",
+      "output": "HOME=/home/my_superapp",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad2.2 Create group",
+      "setup": "docker build -t zad2.2 zad2 --build-arg PROJECT_DIR=/home/my_superapp --build-arg USER_ID=1003",
+      "run": "docker run --entrypoint \"\" zad2.2 cat /etc/group | grep app_users",
+      "input": "",
+      "output": "app_users:x:1000:",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad2.3 Create user",
+      "setup": "docker build -t zad2.3 zad2 --build-arg PROJECT_DIR=/home/my_superapp --build-arg USER_ID=1003",
+      "run": "docker run --entrypoint \"\" zad2.3 cat /etc/passwd | grep mobydick",
+      "input": "",
+      "output": "^mobydick:x:1003:1000:.*:/home/my_superapp:.*$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad2.4 Container user",
+      "setup": "docker build -t zad2.4 zad2 --build-arg PROJECT_DIR=/home/my_superapp --build-arg USER_ID=1003",
+      "run": "docker run --entrypoint \"\" zad2.4 whoami",
+      "input": "",
+      "output": "mobydick",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad3.5 Build and run app server on port 8080",
+      "setup": "docker build -t zad3.5 zad2 --build-arg PROJECT_DIR=/home/my_superapp --build-arg USER_ID=1003 && docker run -d -p 8080:8080 zad3.5",
+      "run": "sleep 5 && curl localhost:8080/items/111222333",
+      "input": "",
+      "output": "{\"item_id\":111222333}",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 2
+    }
+  ]
+}
