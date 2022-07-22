@@ -1,0 +1,79 @@
+version: '3.9'
+
+volumes:
+  redis_vol:
+  postgres_vol:
+
+networks:
+  todos_network:
+    name: todos_network
+
+services:
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis_vol:/data
+    networks:
+      - todos_network
+
+  db:
+    image: postgres:alpine
+    restart: always
+    volumes:
+      - postgres_vol:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: 4JIE70Gs3COX8VqvleZVJWDN
+    networks:
+      - todos_network
+
+  backend: &backend
+    platform: linux/amd64
+    image: todos/backend:1.0.0
+    build:
+      context: .
+      dockerfile: .dockerdev/api/Dockerfile.prod
+      args:
+        RUBY_VERSION: 3.1.2
+        BUNDLER_VERSION: 2.3.11
+        USER_ID: 5001
+        GROUP_ID: 5000
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PASSWORD: 4JIE70Gs3COX8VqvleZVJWDN
+      DATABASE_USER: postgres
+      DATABASE_NAME: todos_production
+      REDIS_URL: redis://redis:6379/0
+      RAILS_LOG_TO_STDOUT: 'true'
+      CORS_DOMAINS: '*'
+      RAILS_ENV: 'production'
+      SECRET_KEY_BASE: 'b724021295a7298d2abbba7ce9cf75d86aae692bf501be75dbfa893014b8110bd617a3a7917e3e294c7841d8379ae4e471be76fc7f88c5dd0ecf6ed4cac70031'
+    depends_on:
+      - db
+      - redis
+    networks:
+      - todos_network
+
+  sidekiq:
+    <<: *backend
+    command: [ "bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml" ]
+
+  api:
+    <<: *backend
+    command: [ "bundle", "exec", "puma", "-C", "config/puma.rb" ]
+    ports:
+      - 3000:3000
+
+  frontend:
+    platform: linux/amd64
+    image: todos/frontend:1.0.0
+    build:
+      context: .
+      dockerfile: .dockerdev/frontend/Dockerfile.prod
+      args:
+        REACT_APP_API_URL: 'http://localhost:3000'
+    ports:
+      - 80:80
+    depends_on:
+      - api
+    networks:
+      - todos_network

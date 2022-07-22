@@ -1,0 +1,121 @@
+version: '3.8'
+
+volumes:
+  redis_vol:
+  postgres_vol:
+  bundle_vol:
+  cache_vol:
+  node_modules_vol:
+
+networks:
+  todos_network:
+    driver: bridge
+    name: todos_network
+
+services:
+  redis:
+    container_name: redis
+    image: redis:alpine
+    volumes:
+      - redis_vol:/data
+    ports:
+      - 6379
+    healthcheck:
+      test: redis-cli ping
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      - todos_network
+
+  db:
+    container_name: db
+    image: postgres:alpine
+    restart: always
+    volumes:
+      - postgres_vol:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_PASSWORD: 123456789Password
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - todos_network
+
+  backend: &backend
+    container_name: backend
+    image: todos_backend
+    build:
+      context: .
+      dockerfile: .dockerdev/api/Dockerfile
+      args:
+        RUBY_VERSION: 3.1.2
+        BUNDLER_VERSION: 2.3.11
+        USER_ID: 5001
+        GROUP_ID: 5000
+    stdin_open: true
+    tty: true
+    tmpfs:
+      - /api/tmp
+    volumes:
+      - ./api:/app:cached
+      - cache_vol:/app/tmp/cache
+      - bundle_vol:/usr/local/bundle
+    environment:
+      BOOTSNAP_CACHE_DIR: /usr/local/bundle/_bootsnap
+      WEB_CONCURRENCY: 1
+      HISTFILE: /app/log/.bash_history
+      PSQL_HISTFILE: /app/log/.psql_history
+      DATABASE_HOST: db
+      DATABASE_PASSWORD: 123456789Password
+      DATABASE_USER: postgres
+      DATABASE_NAME: todos_development
+      REDIS_URL: redis://redis:6379/0
+      RAILS_LOG_TO_STDOUT: 'true'
+      CORS_DOMAINS: '*'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - todos_network
+
+  sidekiq:
+    <<: *backend
+    container_name: sidekiq
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+
+  api:
+    <<: *backend
+    container_name: api
+    command: ['bundle', 'exec', 'puma', '-C', 'config/puma.rb']
+    ports:
+      - 3000:3000
+
+  frontend:
+    platform: linux/amd64
+    container_name: frontend
+    image: todos_frontend
+    build:
+      context: .
+      dockerfile: .dockerdev/frontend/Dockerfile
+    command: ['npm', 'run', 'start']
+    environment:
+      PORT: 8080
+      HOST: '0.0.0.0'
+      REACT_APP_API_URL: 'http://localhost:3000'
+    ports:
+      - 8080:8080
+    volumes:
+      - ./frontend:/app
+      - node_modules_vol:/app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - todos_network
