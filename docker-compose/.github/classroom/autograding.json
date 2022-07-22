@@ -1,0 +1,104 @@
+{
+  "tests": [
+    {
+      "name": "zad1.1 Redis setup",
+      "setup": "docker compose up -d redis",
+      "run": "docker inspect $(docker-compose ps -q redis) --format='{\"image\":{{json .Config.Image}},\"container_name\":{{json .Name}},\"mounts_type\":{{json (index .Mounts 0).Type}},\"mounts_driver\":{{json (index .Mounts 0).Driver}},\"mounts_destination\":{{json (index .Mounts 0).Destination}}}'",
+      "input": "",
+      "output": "{\"image\":\"redis:alpine\",\"container_name\":\"/users-redis\",\"mounts_type\":\"volume\",\"mounts_driver\":\"local\",\"mounts_destination\":\"/data\"}",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad1.2 Redis ping",
+      "setup": "docker compose up -d redis",
+      "run": "docker compose run --rm redis redis-cli -h redis ping",
+      "input": "",
+      "output": "PONG",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zas2.1 Setup API",
+      "setup": "docker compose up -d api",
+      "run": "docker inspect $(docker-compose ps -q api) --format='{\"image\":{{json .Config.Image}}},\"container_name\":{{json .Name}}}'",
+      "input": "",
+      "output": "^{\"image\":\".*\\/users_api:1.0.0\"},\"container_name\":\"\\/users-api\"}$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad2.2 Create back tier network and attach services",
+      "setup": "docker compose up -d api",
+      "run": "docker network inspect back-tier-network -f \"{{ range .Containers }}{{ .Name }},{{ end }}\"",
+      "input": "",
+      "output": "^(users-api,users-redis,)|(users-redis,users-api,)$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad2.4 Run API server",
+      "setup": "docker compose up -d api",
+      "run": "sleep 6 && curl -X POST \"http://localhost:3000/api/users\" -H 'Content-Type: application/json' -d '{\"first_name\":\"Andrew\",\"last_name\":\"Brookins\",\"email\":\"user@example.com\",\"age\":\"21\"}'",
+      "input": "",
+      "output": "^{\"pk\":\".*\",\"first_name\":\"Andrew\",\"last_name\":\"Brookins\",\"email\":\"user@example.com\",\"created_at\":\"2022-.*-.*\",\"age\":\"21\"}$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad3.1 Setup web",
+      "setup": "docker compose up -d web",
+      "run": "docker inspect $(docker-compose ps -q web) --format='{\"image\":{{json .Config.Image}}},\"container_name\":{{json .Name}}}'",
+      "input": "",
+      "output": "^{\"image\":\".*\\/users_web:2.0.0\"},\"container_name\":\"\\/users-web\"}$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad3.3 Run web server",
+      "setup": "docker compose up -d web",
+      "run": "sleep 6 && curl localhost",
+      "input": "",
+      "output": "^.*<title>Users Web Service<\\/title>.*$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad2.3 Load API envs",
+      "setup": "docker compose up -d api",
+      "run": "docker-compose run --rm --entrypoint=\"\" api printenv | grep REDIS_URL",
+      "input": "",
+      "output": "REDIS_URL=redis://redis:6379/0",
+      "comparison": "exact",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad2.5 API healthcheck",
+      "setup": "docker compose up -d api",
+      "run": "docker inspect $(docker-compose ps -q api) --format='{{ .Config.Healthcheck }}'",
+      "input": "",
+      "output": "^.*curl --fail 'http:\\/\\/localhost:8080\r\n/ping' || exit 1] 10s.*$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "zad3.2 Create front tier network and attach services",
+      "setup": "docker compose up -d",
+      "run": "docker network inspect front-tier-network -f \"{{ range .Containers }}{{ .Name }},{{ end }}\"",
+      "input": "",
+      "output": "^(users-api,users-web,)|(users-web,users-api,)$",
+      "comparison": "regex",
+      "timeout": 10,
+      "points": 1
+    }
+  ]
+}

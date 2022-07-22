@@ -1,0 +1,51 @@
+version: "3.9"
+
+volumes:
+  redis-storage:
+
+networks:
+  back-tier-network:
+    driver: bridge
+    name: back-tier-network
+  front-tier-network:
+    driver: bridge
+    name: front-tier-network
+
+services:
+  redis:
+    container_name: users-redis
+    image: redis:alpine
+    volumes:
+      - redis-storage:/data
+    ports:
+      - 6379
+    networks:
+      - back-tier-network
+  api:
+    container_name: users-api
+    image: smendowski/users_api:1.0.0
+    env_file:
+      - .env
+    command: ['uvicorn', 'main:app']
+    ports:
+      - 3000:8080
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ping", "||", "exit 1"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    networks:
+      - back-tier-network
+      - front-tier-network
+  web:
+    container_name: users-web
+    image: smendowski/users_web:2.0.0
+    ports:
+      - 80:80
+    networks:
+      - front-tier-network
+    depends_on:
+      - api

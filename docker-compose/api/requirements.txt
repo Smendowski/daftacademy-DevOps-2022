@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pydantic[email]
+fastapi-cache2
+redis-om
